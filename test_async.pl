@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+use v5.16;
 use Promises backend => ['EV'], warn_on_unhandled_reject => [1];
 use FindBin::libs;
 use strictures;
@@ -11,40 +12,43 @@ use Data::Printer;
 use lib '../Songs/lib';
 use Songs::AsyncSchema;
 
-sub dbic { Songs::AsyncSchema->connect };
+my $dbic = Songs::AsyncSchema->connect();
 
-test_serial();
+test_count();
 test_cancel();
 
-sub test_serial {
-    #my @foo = dbic()->resultset('Songs')->count;
-    #warn @foo;
-    my @bar = dbic()->resultset('Songs')->search({}, { rows => 2 })->all->then(sub {
+sub test_count {
+    my $rs = $dbic->resultset('Songs');
+    $rs->as_async->count->then(sub {
+        my ($count) = @_;
+        say "Count: $count";
+    });
+    $rs->search({}, { rows => 2 })->all->then(sub {
         p @_;
     });
     EV::run;
 }
 
 sub test_cancel {
-    my @cursors;
-    for my $id (1..3) {
-        my $cursor = dbic()
+    my @promises;
+    my $rs = $dbic
             ->resultset('Songs')
             ->search({
             }, {
                 columns => [
                     { foo => \'sum(length(songxml))' }
                 ],
-            })
-            ->all
-            ;
-        push @cursors, $cursor;
+            });
 
-        $cursor
+    for my $id (1..3) {
+        my $promise = $rs->as_async->all;
+        push @promises, $promise;
+
+        $promise
             ->then(sub {
                 my (@rows) = @_;
                 warn "$id done";
-                #$_->cancel for @cursors;
+                #$_->cancel for @promises;
                 for my $row (@rows) {
                     p $row;
                 }
@@ -53,13 +57,13 @@ sub test_cancel {
             });
     }
 
-    my $cursor = dbic()
+    my $promise = $dbic
         ->resultset('Songs')
         ->search({}, { rows => 1 })
         ->all
         ->then(sub {
             warn 'cancel';
-            for( @cursors) {
+            for( @promises) {
                 try {
                     $_->cancel
                 } catch {

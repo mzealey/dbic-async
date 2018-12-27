@@ -46,4 +46,28 @@ sub all {
         : @{$sth->fetchall_arrayref};
 }
 
+sub next_p {
+  my $self = shift;
+
+  my $sth;
+
+  if ($sth = $self->sth) {
+    # explicit finish will issue warnings, unlike the DESTROY below
+    $sth->finish if $sth->FETCH('Active');
+  }
+
+  (undef, $sth, undef) = $self->storage->_select( @{$self->{args}} );
+  return $sth->then(sub {
+    my ($sth) = @_;
+    $self->sth($sth);
+
+    $self->{_results} = [ (undef) x $sth->FETCH('NUM_OF_FIELDS') ];
+    $sth->bind_columns( \( @{$self->{_results}} ) );
+
+    if ( $self->{attrs}{software_limit} and $self->{attrs}{offset} ) {
+      $sth->fetch for 1 .. $self->{attrs}{offset};
+    }
+  });
+}
+
 1;
