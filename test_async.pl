@@ -9,7 +9,6 @@ use AnyEvent::Impl::EV;
 use EV;
 use Data::Printer;
 
-use lib '../Songs/lib';
 use Songs::AsyncSchema;
 
 my $dbic = Songs::AsyncSchema->connect();
@@ -18,12 +17,12 @@ test_count();
 test_cancel();
 
 sub test_count {
-    my $rs = $dbic->resultset('Songs');
-    $rs->as_async->count->then(sub {
+    my $rs = $dbic->resultset('Song');
+    $rs->as_async->count_p->then(sub {
         my ($count) = @_;
         say "Count: $count";
     });
-    $rs->search({}, { rows => 2 })->all->then(sub {
+    $rs->search({}, { rows => 2 })->as_async->all_p->then(sub {
         p @_;
     });
     EV::run;
@@ -32,7 +31,7 @@ sub test_count {
 sub test_cancel {
     my @promises;
     my $rs = $dbic
-            ->resultset('Songs')
+            ->resultset('Song')
             ->search({
             }, {
                 columns => [
@@ -41,7 +40,7 @@ sub test_cancel {
             });
 
     for my $id (1..3) {
-        my $promise = $rs->as_async->all;
+        my $promise = $rs->as_async->all_p;
         push @promises, $promise;
 
         $promise
@@ -58,9 +57,10 @@ sub test_cancel {
     }
 
     my $promise = $dbic
-        ->resultset('Songs')
+        ->resultset('Song')
         ->search({}, { rows => 1 })
-        ->all
+        ->as_async
+        ->all_p
         ->then(sub {
             warn 'cancel';
             for( @promises) {

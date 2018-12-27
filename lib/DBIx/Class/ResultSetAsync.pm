@@ -1,7 +1,7 @@
 package DBIx::Class::ResultSetAsync;
 use strict;
 use warnings;
-use base 'DBIx::Class::ResultSet';
+use base 'DBIx::Class::ResultSetWithAsync';
 use DBIx::Class::ResultSetAsyncColumn;
 
 sub get_column {
@@ -10,7 +10,11 @@ sub get_column {
   return $new;
 }
 
-sub all {
+# Ensure people are using the async calls in this class to avoid getting weird errors like "cannot call ->then() on 2"
+sub all { die "Async" }
+sub count { die "Async" }
+
+sub all_p {
   my $self = shift;
   if(@_) {
     $self->throw_exception("all() doesn't take any arguments, you probably wanted ->search(...)->all()");
@@ -32,7 +36,7 @@ sub all {
   });
 }
 
-sub count {
+sub count_p {
   my $self = shift;
   return $self->search(@_)->count if @_ and defined $_[0];
   #return scalar @{ $self->get_cache } if $self->get_cache;
@@ -59,15 +63,6 @@ sub count {
 
     return $count;
   });
-}
-
-# Clone the current resultset to use a new connection for the purposes of an async query.
-sub as_async {
-    my $self = shift;
-    my $schema = $self->result_source->schema;
-    my $new_schema = $schema->connect( @{$schema->storage->connect_info} );
-    my $new_source = $new_schema->source($self->result_source->source_name);
-    return $new_source->resultset_class->new($new_source, $self->{attrs});
 }
 
 1
