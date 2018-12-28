@@ -58,7 +58,7 @@ sub next_p {
 
   (undef, $sth, undef) = $self->storage->_select( @{$self->{args}} );
   return $sth->then(sub {
-    my ($sth) = @_;
+    my ($rv, $promise) = @_;
     $self->sth($sth);
 
     $self->{_results} = [ (undef) x $sth->FETCH('NUM_OF_FIELDS') ];

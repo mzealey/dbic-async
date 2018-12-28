@@ -1,6 +1,6 @@
 Attempt at some modules to add Async functionality to DBIx::Class
 
-Set up a Schema object similar to your existing one, but using a custom resultset which contains the `->as_async` command::
+Set up a Schema object similar to your existing one, but using a custom resultset which contains the `->async` command::
 
     use utf8;
     package Songs::AsyncSchema;
@@ -21,7 +21,7 @@ Set up a Schema object similar to your existing one, but using a custom resultse
 
 Once you have a resultset that you want to run async, call it like::
 
-    $rs->as_async->all_p->then(sub {
+    $rs->async->all_p->then(sub {
         my (@rows) = @_;
     });
 

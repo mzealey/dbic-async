@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use base 'DBIx::Class::ResultSetWithAsync';
 use DBIx::Class::ResultSetAsyncColumn;
+use Carp;
 
 sub get_column {
   my ($self, $column) = @_;
@@ -11,8 +12,19 @@ sub get_column {
 }
 
 # Ensure people are using the async calls in this class to avoid getting weird errors like "cannot call ->then() on 2"
-sub all { die "Async" }
-sub count { die "Async" }
+for my $method (qw< all count update delete >) {
+    no strict 'refs';
+    *{$method} = sub {
+        carp "Cannot use non-async method on async resultset - use ${method}_p instead";
+    };
+}
+
+# This just creates a ::Row item so no need to async it
+sub create { carp "Cannot create in an async result set - doesnt make any sense"; }
+
+# ResultSet update/delete are identical; they just return a promise instead of a row count
+sub update_p { shift->SUPER::update( @_ ) }
+sub delete_p { shift->SUPER::delete( @_ ) }
 
 sub all_p {
   my $self = shift;

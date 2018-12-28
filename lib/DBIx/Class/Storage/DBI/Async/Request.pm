@@ -45,7 +45,7 @@ sub _setup_event {
 
             # Emulate the return value from execute() via promises
             if( my $rv = $self->_get_execute_result ) {
-                $self->{_deferred}->resolve( $self->sth, $rv );
+                $self->{_deferred}->resolve( $rv, $self );
             } else {
                 $self->{_deferred}->reject(
                     $self->sth->errstr || $self->sth->err || 'Unknown error: async result from execute() returned false, but error flags were not set...'
@@ -68,23 +68,6 @@ sub execute {
     return $self->promise;
 }
 
-# Block waiting for response
-sub _wait_for_response {
-    my ($self) = @_;
-    return if $self->promise->is_done;
-
-    my $cv = AnyEvent->condvar;
-
-    $self->promise->then(sub {
-        $cv->send(shift);
-    }, sub {
-        warn "Got async error returned: " . shift;
-        $cv->send(undef);
-    });
-
-    return $cv->recv;
-}
-
 sub cancel {
     my ($self, $from_timeout) = @_;
 
@@ -103,15 +86,32 @@ sub finish {
     $self->sth->finish;
 }
 
-# Emulating DBI blocking functions to enable seamless work with DBIx::Class normally
-for my $sth_method (qw< fetch fetchall_arrayref fetchrow_array fetchrow_hashref >) {
-    no strict 'refs';
-    *{$sth_method} = sub {
-        my $self = shift;
-        $self->_wait_for_response;
-        return $self->sth->$sth_method( @_ );
-    }
-}
+## Block waiting for response
+#sub _wait_for_response {
+#    my ($self) = @_;
+#    return if $self->promise->is_done;
+#
+#    my $cv = AnyEvent->condvar;
+#
+#    $self->promise->then(sub {
+#        $cv->send([@_]);
+#    }, sub {
+#        warn "Got async error returned: " . shift;
+#        $cv->send(undef);
+#    });
+#
+#    return $cv->recv;
+#}
+#
+## Emulating DBI blocking functions to enable seamless work with DBIx::Class normally
+#for my $sth_method (qw< fetch fetchall_arrayref fetchrow_array fetchrow_hashref >) {
+#    no strict 'refs';
+#    *{$sth_method} = sub {
+#        my $self = shift;
+#        $self->_wait_for_response;
+#        return $self->sth->$sth_method( @_ );
+#    }
+#}
 
 # Proxy promise methods
 for my $sth_method (qw< then done finally >) {

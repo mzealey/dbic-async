@@ -39,6 +39,4 @@ sub _prepare_sth {
     return DBIx::Class::Storage::DBI::Pg::Async::Request->new( $sth ); #, 0.01 );
 }
 
-# ResultSet update/delete should work fine returning just a promise
-
 1

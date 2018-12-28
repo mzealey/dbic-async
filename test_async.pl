@@ -12,17 +12,43 @@ use Data::Printer;
 use Songs::AsyncSchema;
 
 my $dbic = Songs::AsyncSchema->connect();
+my $rs = $dbic->resultset('Song');
 
+test_crud();
 test_count();
 test_cancel();
 
+sub test_crud {
+    $rs->search({ id => 2 })->async
+        ->update_p({ song_ts_epoch => int(rand() * time) })
+        ->then(sub {
+            my ($rv) = @_;
+            say "Update completed. Return value: $rv";
+        });
+
+    #$dbic->resultset('Tag')->async->create({
+    #        tag_code => rand() * time,
+    #        tag_group => 'test',
+    #    })->then(sub {
+    #        my ($rv) = @_;
+    #        say "Insert completed. Return: $rv";
+    #    });
+
+    $rs->search({ id => 100_000 })->async
+        ->delete_p
+        ->then(sub {
+            my ($rv) = @_;
+            say "Delete completed. Return $rv";
+        });
+    EV::run;
+}
+
 sub test_count {
-    my $rs = $dbic->resultset('Song');
-    $rs->as_async->count_p->then(sub {
+    $rs->async->count_p->then(sub {
         my ($count) = @_;
         say "Count: $count";
     });
-    $rs->search({}, { rows => 2 })->as_async->all_p->then(sub {
+    $rs->search({}, { rows => 2 })->async->all_p->then(sub {
         p @_;
     });
     EV::run;
@@ -40,7 +66,7 @@ sub test_cancel {
             });
 
     for my $id (1..3) {
-        my $promise = $rs->as_async->all_p;
+        my $promise = $rs->async->all_p;
         push @promises, $promise;
 
         $promise
@@ -59,7 +85,7 @@ sub test_cancel {
     my $promise = $dbic
         ->resultset('Song')
         ->search({}, { rows => 1 })
-        ->as_async
+        ->async
         ->all_p
         ->then(sub {
             warn 'cancel';
